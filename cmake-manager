@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+: ${CMAKE_MANAGER_PATH:=$HOME/.cmake}
+CMAKE_MANAGER_PACKAGES_PATH=$CMAKE_MANAGER_PATH/packages
+CMAKE_MANAGER_CACHE_PATH=$CMAKE_MANAGER_PATH/cache
+DEFAULT_CMAKE_CONFIG_LOCATION=share/cmake
+VERSION="0.1"
+
+function usage
+{
+    echo "Usage: $0 COMMAND [ARGUMENTS]"
+    echo "CMake package manager. Version: $VERSION"; echo
+    echo "Available commands:"
+    echo "  help [topic]            - print this help or show help for <topic>"
+    echo "  make <name> <folder>    - make path-config for project <name> whose"
+    echo "                            <name>Config.cmake is located in <folder>"
+}
+
+function list_packages
+{
+    find ${CMAKE_MANAGER_PACKAGES_PATH} -maxdepth 2 -type f | while read f; do
+        OUTPUT=$(head -n 1 "$f")
+        MESSAGE="$(basename $(dirname "$f"))/$(basename "$f"): $OUTPUT"
+        if [[ -d $OUTPUT ]]; then
+            echo $MESSAGE
+        else
+            if echo $OUTPUT | grep -q "^\s*/\w\+"; then
+                echo $MESSAGE '(The given path does not exists!)'
+            fi
+        fi
+    done
+}
+
+function make_config
+{
+    HASH_PATH=$CMAKE_MANAGER_PACKAGES_PATH/$1/$(echo $2 | md5sum | cut -f 1 -d' ')
+    mkdir -p $(dirname $HASH_PATH)
+    echo $2 > $HASH_PATH
+    echo Created path-config for project $1: $HASH_PATH
+}
+
+function remove_config
+{
+    DELETING_PATH="$CMAKE_MANAGER_PACKAGES_PATH/$1"
+    if [[ ! -f "$DELETING_PATH" ]] || echo $DELETING_PATH | grep -q -v "^$CMAKE_MANAGER_PACKAGES_PATH"; then
+        echo "ERROR: project $1 (path $DELETING_PATH) does not exists!"
+    else
+        rm $DELETING_PATH && echo Removed path-config for project $1
+    fi
+}
+
+function create_config
+{
+    CONFIG_PATH="$CMAKE_MANAGER_PACKAGES_PATH/$1"
+    make_config $1 "$CONFIG_PATH"
+    if [[ -f $2 ]]; then
+        cp $2 $CONFIG_PATH/${1}Config.cmake
+    else
+        cat > $CONFIG_PATH/${1}Config.cmake
+    fi
+}
+
+function install_package
+{
+    PROJECT_CONFIG=$(tar tf $1 | grep "$DEFAULT_CMAKE_CONFIG_LOCATION/\w\+[Cc]onfig\.cmake" | head -n 1)
+    NAME=$(basename -s -config.cmake -s Config.cmake $PROJECT_CONFIG)
+    CONFIG_DIR=$(dirname $PROJECT_CONFIG)
+    mkdir -p "$CMAKE_MANAGER_CACHE_PATH"
+    echo Installing $1 into $CMAKE_MANAGER_CACHE_PATH
+    tar xf $1 -C "$CMAKE_MANAGER_CACHE_PATH" && make_config $NAME "$CMAKE_MANAGER_CACHE_PATH/$CONFIG_DIR"
+}
+
+function uninstall_package
+{
+    PROJECT_PATH=$(cat $CMAKE_MANAGER_PACKAGES_PATH/$1 | sed 's;\('$CMAKE_MANAGER_CACHE_PATH'/[^/]\+\)/.*;\1;')
+    if [[ ! -d $PROJECT_PATH ]] || echo $PROJECT_PATH | grep -q -v "^$CMAKE_MANAGER_CACHE_PATH"; then
+        echo "ERROR: project $1 does not exists in cache!"
+    else
+        rm -r $PROJECT_PATH && echo Uninstalled $1 && remove_config $1
+    fi
+}
+
+# MAIN PART
+
+case $1 in
+    list) list_packages;;
+    make)
+        if [[ ! -d $3 ]]; then
+            echo ERROR: path $3 does not exists; echo
+            usage make
+        else
+            make_config $2 $3
+        fi;;
+    create) create_config $2 $3;;
+    remove) remove_config $2;;
+    install) install_package $2;;
+    uninstall) uninstall_package $2;;
+    help) usage;;
+    version) echo $VERSION;;
+    *) echo Unknown command; exit 1;;
+esac
