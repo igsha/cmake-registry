@@ -6,14 +6,23 @@ CMAKE_MANAGER_CACHE_PATH=$CMAKE_MANAGER_PATH/cache
 DEFAULT_CMAKE_CONFIG_LOCATION=share/cmake
 VERSION="0.1"
 
+declare -A COMMANDS
+
 function usage
 {
     echo "Usage: $0 COMMAND [ARGUMENTS]"
-    echo "CMake package manager. Version: $VERSION"; echo
+    echo "CMake package manager."; echo
     echo "Available commands:"
-    echo "  help [topic]            - print this help or show help for <topic>"
-    echo "  make <name> <folder>    - make path-config for project <name> whose"
-    echo "                            <name>Config.cmake is located in <folder>"
+
+    declare -A NAMES
+    for i in ${!COMMANDS[@]}; do
+        NAMES+=([${i##*,}]=1)
+    done
+    for i in ${!NAMES[@]}; do
+        echo "  ${COMMANDS[name,$i]}"\;${COMMANDS[args,$i]}\;- ${COMMANDS[desc,$i]}
+    done | column -t -s ';' -c 80
+
+    echo; echo "Version: $VERSION"
 }
 
 function list_packages
@@ -80,22 +89,37 @@ function uninstall_package
     fi
 }
 
+COMMANDS=(\
+    [name,help]=help [func,help]=usage [args,help]="[<topic>]" [desc,help]="print this help or show help for <topic>" \
+    [name,list]=list [desc,list]="list path-configs" \
+    [name,make]=make [args,make]="<name> <folder>" [desc,make]="make path-config in registry for project <name> whose \
+        <name>Config.cmake is located in <folder>" \
+    [name,create]=create [args,create]="<name> [<file>]" [desc,create]="create path-config in registry for project <name> \
+        with <name>Config.cmake from stdin or <file>" \
+    [name,remove]=remove [args,remove]="<name>" [desc,remove]="remove path-config <name> from registry" \
+    [name,install]=install [args,install]="<tgz>" [desc,install]="unpack and install <tgz> into registry and make \
+        path-config. <tgz> should contain <name>Config.cmake configuration file. Supported archives: tar.*" \
+    [name,uninstall]=uninstall [args,uninstall]="<name>" [desc,uninstall]="uninstall <name> project and remove it\`s \
+        path-config" \
+    [name,version]=version [desc,version]="print version of the program" \
+)
+
 # MAIN PART
 
 case $1 in
-    list) list_packages;;
-    make)
+    ${COMMANDS[name,list]}) list_packages;;
+    ${COMMANDS[name,make]})
         if [[ ! -d $3 ]]; then
             echo ERROR: path $3 does not exists; echo
             usage make
         else
             make_config $2 $3
         fi;;
-    create) create_config $2 $3;;
-    remove) remove_config $2;;
-    install) install_package $2;;
-    uninstall) uninstall_package $2;;
-    help) usage;;
-    version) echo $VERSION;;
-    *) echo Unknown command; exit 1;;
+    ${COMMANDS[name,create]}) create_config $2 $3;;
+    ${COMMANDS[name,remove]}) remove_config $2;;
+    ${COMMANDS[name,install]}) install_package $2;;
+    ${COMMANDS[name,uninstall]}) uninstall_package $2;;
+    ${COMMANDS[name,help]}) ${COMMANDS[func,help]} $2;;
+    ${COMMANDS[name,version]}) echo $VERSION;;
+    *) echo Unknown command [$1]. Try help; exit 1;;
 esac
