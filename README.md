@@ -11,13 +11,13 @@ I need to connect these projects.
 The obvious way is to create installable package for `bit_iterator` like deb-package.
 But I need to contantly fix both project at any time.
 `CMake` is a build system that I always use.
-It has the local ![registry](https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html#package-registry)
+It has the local [registry](https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html#package-registry)
 that can be used for my goals.
 
 # Installation
 
-Just put `cmake-registry` executable file (is a simple `bash`-script) into `/usr/local/bin` or `~/bin` or whatever you want
-(add it`s location into `PATH` system variable).
+Just put `cmake-registry` executable file (a simple `bash`-script) into `/usr/local/bin` or `~/bin` or whatever you want
+(add it\`s location into `PATH` system variable).
 
 # Help
 
@@ -27,7 +27,7 @@ It supports getting help by topic: `cmake-registry help install`.
 # Registry flow
 
 Let's install `bit_iterator` into cmake registry.
-The first approach is to install a `tar.gz` archive into the cache of the registry ($HOME/.cmake/cache).
+The first approach is to install a `tar.gz` archive into the cache of the registry (`$HOME/.cmake/cache`).
 ```sh
 $ ./cmake-registry install ~/bit_iterator/build/bit_iterator-0.1.0-Linux.tar.gz
 Installing /home/igor/bit_iterator/build/bit_iterator-0.1.0-Linux.tar.gz into /home/igor/.cmake/cache
