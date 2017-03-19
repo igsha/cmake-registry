@@ -1,33 +1,42 @@
 #!/usr/bin/env bash
+set -e
 
-: ${CMAKE_MANAGER_PATH:=$HOME/.cmake}
-CMAKE_MANAGER_PACKAGES_PATH=$CMAKE_MANAGER_PATH/packages
-CMAKE_MANAGER_CACHE_PATH=$CMAKE_MANAGER_PATH/cache
-DEFAULT_CMAKE_CONFIG_LOCATION=share/cmake
+: ${CMAKE_REGISTRY_PATH:=$HOME/.cmake}
+: ${DEFAULT_CMAKE_CONFIG_LOCATION:=share/cmake}
+
+CMAKE_REGISTRY_PACKAGES_PATH=$CMAKE_REGISTRY_PATH/packages
+CMAKE_REGISTRY_CACHE_PATH=$CMAKE_REGISTRY_PATH/cache
 VERSION="0.1"
 
 declare -A COMMANDS
 
 function usage
 {
-    echo "Usage: $0 COMMAND [ARGUMENTS]"
-    echo "CMake package manager."; echo
-    echo "Available commands:"
-
     declare -A NAMES
-    for i in ${!COMMANDS[@]}; do
-        NAMES+=([${i##*,}]=1)
-    done
+    if [[ -z "$1" ]]; then
+        echo "Usage: $0 COMMAND [ARGUMENTS]"
+        echo "CMake local registry manager. Version: $VERSION"; echo
+        echo "Available commands:"
+
+        for i in ${!COMMANDS[@]}; do
+            NAMES+=([${i##*,}]=1)
+        done
+    else
+        NAMES=([$1]=1)
+        if [[ -z "${COMMANDS[name,$1]}" ]]; then
+            echo "ERROR: no such topic!"
+            return 1
+        fi
+    fi
+
     for i in ${!NAMES[@]}; do
         echo "  ${COMMANDS[name,$i]}"\;${COMMANDS[args,$i]}\;- ${COMMANDS[desc,$i]}
     done | column -t -s ';' -c 80
-
-    echo; echo "Version: $VERSION"
 }
 
 function list_packages
 {
-    find ${CMAKE_MANAGER_PACKAGES_PATH} -maxdepth 2 -type f | while read f; do
+    find ${CMAKE_REGISTRY_PACKAGES_PATH} -maxdepth 2 -type f | while read f; do
         OUTPUT=$(head -n 1 "$f")
         MESSAGE="$(basename $(dirname "$f"))/$(basename "$f"): $OUTPUT"
         if [[ -d $OUTPUT ]]; then
@@ -42,16 +51,21 @@ function list_packages
 
 function make_config
 {
-    HASH_PATH=$CMAKE_MANAGER_PACKAGES_PATH/$1/$(echo $2 | md5sum | cut -f 1 -d' ')
-    mkdir -p $(dirname $HASH_PATH)
-    echo $2 > $HASH_PATH
-    echo Created path-config for project $1: $HASH_PATH
+    if [[ ! -f "$1" ]]; then
+        echo "ERROR: config $1 does not exists!"
+    else
+        CONFIG_NAME=$(basename -s -config.cmake -s Config.cmake "$1")
+        HASH_FILE=$CMAKE_REGISTRY_PACKAGES_PATH/$CONFIG_NAME/$(echo $1 | md5sum | cut -f 1 -d' ')
+        mkdir -p $(dirname $HASH_FILE)
+        dirname $1 > $HASH_FILE
+        echo Created path-config for project $CONFIG_PATH: $HASH_FILE
+    fi
 }
 
 function remove_config
 {
-    DELETING_PATH="$CMAKE_MANAGER_PACKAGES_PATH/$1"
-    if [[ ! -f "$DELETING_PATH" ]] || echo $DELETING_PATH | grep -q -v "^$CMAKE_MANAGER_PACKAGES_PATH"; then
+    DELETING_PATH="$CMAKE_REGISTRY_PACKAGES_PATH/$1"
+    if [[ ! -f "$DELETING_PATH" ]] || echo $DELETING_PATH | grep -q -v "^$CMAKE_REGISTRY_PACKAGES_PATH"; then
         echo "ERROR: project $1 (path $DELETING_PATH) does not exists!"
     else
         rm $DELETING_PATH && echo Removed path-config for project $1
@@ -60,29 +74,28 @@ function remove_config
 
 function create_config
 {
-    CONFIG_PATH="$CMAKE_MANAGER_PACKAGES_PATH/$1"
-    make_config $1 "$CONFIG_PATH"
+    CONFIG_FILE="$CMAKE_REGISTRY_CACHE_PATH/$1/${1}Config.cmake"
+    mkdir -p $(dirname "$CONFIG_FILE")
     if [[ -f $2 ]]; then
-        cp $2 $CONFIG_PATH/${1}Config.cmake
+        cp $2 "$CONFIG_FILE"
     else
-        cat > $CONFIG_PATH/${1}Config.cmake
+        cat > "$CONFIG_FILE"
     fi
+    make_config "$CONFIG_FILE"
 }
 
 function install_package
 {
     PROJECT_CONFIG=$(tar tf $1 | grep "$DEFAULT_CMAKE_CONFIG_LOCATION/\w\+[Cc]onfig\.cmake" | head -n 1)
-    NAME=$(basename -s -config.cmake -s Config.cmake $PROJECT_CONFIG)
-    CONFIG_DIR=$(dirname $PROJECT_CONFIG)
-    mkdir -p "$CMAKE_MANAGER_CACHE_PATH"
-    echo Installing $1 into $CMAKE_MANAGER_CACHE_PATH
-    tar xf $1 -C "$CMAKE_MANAGER_CACHE_PATH" && make_config $NAME "$CMAKE_MANAGER_CACHE_PATH/$CONFIG_DIR"
+    mkdir -p "$CMAKE_REGISTRY_CACHE_PATH"
+    echo Installing $1 into $CMAKE_REGISTRY_CACHE_PATH
+    tar xf $1 -C "$CMAKE_REGISTRY_CACHE_PATH" && make_config "$CMAKE_REGISTRY_CACHE_PATH/$PROJECT_CONFIG"
 }
 
 function uninstall_package
 {
-    PROJECT_PATH=$(cat $CMAKE_MANAGER_PACKAGES_PATH/$1 | sed 's;\('$CMAKE_MANAGER_CACHE_PATH'/[^/]\+\)/.*;\1;')
-    if [[ ! -d $PROJECT_PATH ]] || echo $PROJECT_PATH | grep -q -v "^$CMAKE_MANAGER_CACHE_PATH"; then
+    PROJECT_PATH=$(cat $CMAKE_REGISTRY_PACKAGES_PATH/$1 | sed 's;\('$CMAKE_REGISTRY_CACHE_PATH'/[^/]\+\)/.*;\1;')
+    if [[ ! -d $PROJECT_PATH ]] || echo $PROJECT_PATH | grep -q -v "^$CMAKE_REGISTRY_CACHE_PATH"; then
         echo "ERROR: project $1 does not exists in cache!"
     else
         rm -r $PROJECT_PATH && echo Uninstalled $1 && remove_config $1
@@ -92,8 +105,8 @@ function uninstall_package
 COMMANDS=(\
     [name,help]=help [func,help]=usage [args,help]="[<topic>]" [desc,help]="print this help or show help for <topic>" \
     [name,list]=list [desc,list]="list path-configs" \
-    [name,make]=make [args,make]="<name> <folder>" [desc,make]="make path-config in registry for project <name> whose \
-        <name>Config.cmake is located in <folder>" \
+    [name,make]=make [args,make]="<config>" [desc,make]="make path-config in registry for project which is described by \
+        <config>. <config> should take the form <name>Config.cmake" \
     [name,create]=create [args,create]="<name> [<file>]" [desc,create]="create path-config in registry for project <name> \
         with <name>Config.cmake from stdin or <file>" \
     [name,remove]=remove [args,remove]="<name>" [desc,remove]="remove path-config <name> from registry" \
@@ -107,16 +120,10 @@ COMMANDS=(\
 # MAIN PART
 
 case $1 in
-    ${COMMANDS[name,list]}) list_packages;;
-    ${COMMANDS[name,make]})
-        if [[ ! -d $3 ]]; then
-            echo ERROR: path $3 does not exists; echo
-            usage make
-        else
-            make_config $2 $3
-        fi;;
+    ${COMMANDS[name,make]}) make_config "$2";;
     ${COMMANDS[name,create]}) create_config $2 $3;;
     ${COMMANDS[name,remove]}) remove_config $2;;
+    ${COMMANDS[name,list]}) list_packages;;
     ${COMMANDS[name,install]}) install_package $2;;
     ${COMMANDS[name,uninstall]}) uninstall_package $2;;
     ${COMMANDS[name,help]}) ${COMMANDS[func,help]} $2;;
