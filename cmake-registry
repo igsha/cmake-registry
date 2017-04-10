@@ -54,7 +54,8 @@ function make_config
     if [[ ! -f "$1" ]]; then
         echo "ERROR: config $1 does not exists!"
     else
-        CONFIG_NAME=$(basename -s -config.cmake -s Config.cmake "$1")
+        shopt -s extglob
+        CONFIG_NAME=$(basename ${1%@(-config|Config).cmake})
         HASH_FILE=$CMAKE_REGISTRY_PACKAGES_PATH/$CONFIG_NAME/$(echo $1 | md5sum | cut -f 1 -d' ')
         mkdir -p $(dirname $HASH_FILE)
         dirname $1 > $HASH_FILE
