@@ -86,10 +86,14 @@ function create_config
 
 function install_package
 {
-    PROJECT_CONFIG=$(tar tf $1 | grep "$DEFAULT_CMAKE_CONFIG_LOCATION/\w\+[Cc]onfig\.cmake" | head -n 1)
-    mkdir -p "$CMAKE_REGISTRY_CACHE_PATH"
-    echo Installing $1 into $CMAKE_REGISTRY_CACHE_PATH
-    tar xf $1 -C "$CMAKE_REGISTRY_CACHE_PATH" && make_config "$CMAKE_REGISTRY_CACHE_PATH/$PROJECT_CONFIG"
+    PROJECT_CONFIG=$(tar tf $1 | grep "$DEFAULT_CMAKE_CONFIG_LOCATION/[_[:alnum:]-]\+[Cc]onfig\.cmake" | head -n 1)
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: <project>Config.cmake has not been found in $1 archive!"
+    else
+        mkdir -p "$CMAKE_REGISTRY_CACHE_PATH"
+        echo Installing $1 into $CMAKE_REGISTRY_CACHE_PATH
+        tar xf $1 -C "$CMAKE_REGISTRY_CACHE_PATH" && make_config "$CMAKE_REGISTRY_CACHE_PATH/$PROJECT_CONFIG"
+    fi
 }
 
 function uninstall_package
@@ -106,12 +110,12 @@ COMMANDS=(\
     [name,help]=help [func,help]=usage [args,help]="[<topic>]" [desc,help]="print this help or show help for <topic>" \
     [name,list]=list [desc,list]="list path-configs" \
     [name,make]=make [args,make]="<config>" [desc,make]="make path-config in registry for project which is described by \
-        <config>. <config> should take the form <name>Config.cmake" \
+        <config>. <config> should take the form <name>Config.cmake or <name>-config.cmake" \
     [name,create]=create [args,create]="<name> [<file>]" [desc,create]="create path-config in registry for project <name> \
         with <name>Config.cmake from stdin or <file>" \
     [name,remove]=remove [args,remove]="<name>" [desc,remove]="remove path-config <name> from registry" \
     [name,install]=install [args,install]="<tgz>" [desc,install]="unpack and install <tgz> into registry and make \
-        path-config. <tgz> should contain <name>Config.cmake configuration file. Supported archives: tar.*" \
+        path-config. <tgz> should contain <name>Config.cmake or <name>-config.cmake configuration file. Supported archives: tar.*" \
     [name,uninstall]=uninstall [args,uninstall]="<name>" [desc,uninstall]="uninstall <name> project and remove it\`s \
         path-config" \
     [name,version]=version [desc,version]="print version of the program" \
