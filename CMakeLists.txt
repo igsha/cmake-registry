@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.3)
-project(cmake-registry VERSION 0.2.0 LANGUAGES NONE)
+project(cmake-registry VERSION 0.3.1 LANGUAGES NONE)
 
 configure_file(${PROJECT_NAME}.in ${PROJECT_NAME} @ONLY)
 install(PROGRAMS ${CMAKE_BINARY_DIR}/${PROJECT_NAME} DESTINATION bin)
