@@ -56,9 +56,10 @@ function make_config
     else
         shopt -s extglob
         CONFIG_NAME=$(basename ${1%@(-config|Config).cmake})
-        HASH_FILE=$CMAKE_REGISTRY_PACKAGES_PATH/$CONFIG_NAME/$(echo $1 | md5sum | cut -f 1 -d' ')
+        ABSOLUTE_PATH=$(realpath $1)
+        HASH_FILE=$CMAKE_REGISTRY_PACKAGES_PATH/$CONFIG_NAME/$(echo $ABSOLUTE_PATH | md5sum | cut -f 1 -d' ')
         mkdir -p $(dirname $HASH_FILE)
-        dirname $1 > $HASH_FILE
+        dirname $ABSOLUTE_PATH > $HASH_FILE
         echo Created path-config for project $CONFIG_PATH: $HASH_FILE
     fi
 }
